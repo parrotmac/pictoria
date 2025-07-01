@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  pictoria:
+    build: .
+    container_name: pictoria-app
+    ports:
+      - "8080:8080"
+    volumes:
+      # Persist uploads directory
+      - ./uploads:/root/uploads
+      # Persist user data
+      - pictoria-data:/root/data
+    environment:
+      - PORT=8080
+    restart: unless-stopped
+
+volumes:
+  pictoria-data:

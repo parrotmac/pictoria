@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pictoria - Photo Upload</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/vue-router@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --border-color: #e0e0e0;
+            --border-hover: #3498db;
+            --button-primary: #3498db;
+            --button-primary-hover: #2980b9;
+            --button-success: #2ecc71;
+            --button-success-hover: #27ae60;
+            --button-danger: #e74c3c;
+            --button-danger-hover: #c0392b;
+            --modal-overlay: rgba(0,0,0,0.7);
+            --shadow: rgba(0,0,0,0.1);
+            --header-color: #2c3e50;
+            --upload-area-bg: #f8f9fa;
+            --upload-area-hover: #e3f2fd;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-primary: #1a1a1a;
+                --bg-secondary: #2d2d2d;
+                --text-primary: #e0e0e0;
+                --text-secondary: #b0b0b0;
+                --text-muted: #808080;
+                --border-color: #404040;
+                --border-hover: #5dade2;
+                --button-primary: #5dade2;
+                --button-primary-hover: #3498db;
+                --button-success: #58d68d;
+                --button-success-hover: #2ecc71;
+                --button-danger: #ec7063;
+                --button-danger-hover: #e74c3c;
+                --modal-overlay: rgba(0,0,0,0.85);
+                --shadow: rgba(0,0,0,0.3);
+                --header-color: #e0e0e0;
+                --upload-area-bg: #2d2d2d;
+                --upload-area-hover: #3d3d3d;
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        #app {
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0 15px 0;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: var(--header-color);
+            margin-bottom: 5px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 25px 0;
+            flex-wrap: wrap;
+        }
+
+        .action-button {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            min-width: 220px;
+        }
+
+        .action-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px var(--shadow);
+            border-color: var(--border-hover);
+        }
+
+        .action-button svg,
+        .action-button i {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 15px auto;
+            color: var(--button-primary);
+            display: block;
+        }
+
+        .action-button svg {
+            stroke: var(--button-primary);
+            fill: none;
+        }
+
+        .action-button h2 {
+            font-size: 1.3rem;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .action-button p {
+            color: var(--text-secondary);
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--modal-overlay);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 30px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .close-button:hover {
+            color: var(--text-primary);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--button-primary);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            background: var(--upload-area-bg);
+        }
+
+        .upload-area.dragover {
+            background: var(--upload-area-hover);
+            border-color: var(--border-hover);
+        }
+
+        .upload-area.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            background: var(--upload-area-bg);
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-button {
+            background: var(--button-primary);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .upload-button:hover {
+            background: var(--button-primary-hover);
+        }
+
+        .camera-container {
+            text-align: center;
+        }
+
+        #camera-video {
+            max-width: 100%;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .capture-button {
+            background: var(--button-danger);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .capture-button:hover {
+            background: var(--button-danger-hover);
+        }
+
+        .photo-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            margin-top: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .photo-item {
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px var(--shadow);
+            transition: transform 0.3s ease;
+        }
+
+        .photo-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .photo-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .photo-info {
+            padding: 12px;
+        }
+
+        .photo-info p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid var(--border-color);
+            border-top: 3px solid var(--button-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .gallery-button {
+            display: flex;
+            justify-content: center;
+            margin: 25px 0;
+        }
+
+        .view-gallery-button {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 20px 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            min-width: 200px;
+            text-decoration: none;
+            display: inline-block;
+            color: var(--text-primary);
+        }
+
+        .view-gallery-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px var(--shadow);
+            border-color: var(--button-success);
+        }
+
+        .view-gallery-button h3 {
+            font-size: 1.2rem;
+            color: var(--button-success);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .sticky-nav {
+            position: sticky;
+            top: 0;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px var(--shadow);
+        }
+
+        .sticky-nav-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .back-button {
+            background: var(--button-primary);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .back-button:hover {
+            background: var(--button-primary-hover);
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                padding: 15px 0 10px 0;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .action-buttons {
+                gap: 15px;
+                margin: 20px 0;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .action-button {
+                padding: 30px 25px;
+                min-width: unset;
+                width: 100%;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            
+            .action-button svg,
+            .action-button i {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .action-button h2 {
+                font-size: 1.1rem;
+            }
+            
+            .gallery-button {
+                margin: 20px 0;
+            }
+            
+            .view-gallery-button {
+                padding: 15px 25px;
+                min-width: unset;
+                width: 100%;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+            
+            .view-gallery-button h3 {
+                font-size: 1.1rem;
+            }
+            
+            .back-button {
+                padding: 8px 20px;
+                font-size: 14px;
+            }
+            
+            .photo-grid {
+                max-width: 100%;
+                padding: 0 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <router-view></router-view>
+
+        <!-- Upload Progress Overlay -->
+        <div v-if="uploadingNative" class="modal" style="background: rgba(0,0,0,0.8);">
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                <div class="spinner" style="border-color: white; border-top-color: #3498db;"></div>
+                <p style="color: white; margin-top: 20px; font-size: 18px;">Uploading photo...</p>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <div v-if="showUploadModal" class="modal" @click.self="closeUpload">
+            <div class="modal-content">
+                <button class="close-button" @click="closeUpload">&times;</button>
+                <h2>Upload Photo</h2>
+                
+                <div v-if="!fileUploadSuccess">
+                    <div 
+                        class="upload-area"
+                        :class="{ dragover: isDragging, disabled: uploading }"
+                        @dragover.prevent="isDragging = true"
+                        @dragleave.prevent="isDragging = false"
+                        @drop.prevent="handleDrop"
+                    >
+                        <p>Drag and drop your photos here or</p>
+                        <input 
+                            type="file" 
+                            ref="fileInput" 
+                            class="file-input"
+                            @change="handleFileSelect"
+                            accept="image/*,.heic,.HEIC,.heif,.HEIF"
+                            multiple
+                            :disabled="uploading"
+                        >
+                        <button class="upload-button" @click="$refs.fileInput.click()" :disabled="uploading">
+                            Choose Files
+                        </button>
+                    </div>
+
+                    <div v-if="uploading" style="margin-top: 20px;">
+                        <div class="spinner"></div>
+                        <p v-if="uploadProgress.total > 1">
+                            Uploading {{ uploadProgress.current }} of {{ uploadProgress.total }} files...
+                        </p>
+                        <p v-else-if="selectedFiles.length > 0">
+                            Uploading {{ selectedFiles[0].name }}...
+                        </p>
+                    </div>
+
+                    <div v-if="uploadError" style="color: red; margin-top: 10px;">
+                        {{ uploadError }}
+                    </div>
+                </div>
+
+                <div v-else style="margin-top: 20px; padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; text-align: center;">
+                    <p style="color: #155724; margin: 0 0 10px 0; font-weight: 500;">✓ Photos uploaded successfully!</p>
+                    <button class="upload-button" @click="navigateToGalleryWithPhoto(lastUploadedPhotoId); closeUpload();" style="background: var(--button-success);">
+                        View in Gallery
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showCameraModal" class="modal" @click.self="closeCamera">
+            <div class="modal-content">
+                <button class="close-button" @click="closeCamera">&times;</button>
+                <h2>Capture Photo</h2>
+                
+                <div class="camera-container">
+                    <video ref="video" id="camera-video" v-show="!capturedImage" autoplay playsinline></video>
+                    <canvas ref="canvas" style="display: none;"></canvas>
+                    
+                    <div v-if="cameras.length > 1 && !capturedImage" style="text-align: center; margin: 10px 0; color: #666; font-size: 14px;">
+                        Camera {{ cameras.findIndex(c => c.deviceId === currentCameraId) + 1 }} of {{ cameras.length }}
+                    </div>
+                    
+                    <div v-if="!capturedImage" class="camera-controls">
+                        <button v-if="cameras.length > 1" class="upload-button" @click="switchCamera">
+                            Switch Camera
+                        </button>
+                        <button class="capture-button" @click="capturePhoto">
+                            Capture
+                        </button>
+                    </div>
+
+                    <div v-if="capturedImage" style="margin-top: 20px;">
+                        <img :src="capturedImage" style="max-width: 100%; border-radius: 10px;">
+                        <div v-if="uploadSuccess" style="margin-top: 20px; padding: 15px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; text-align: center;">
+                            <p style="color: #155724; margin: 0 0 10px 0; font-weight: 500;">✓ Photo uploaded successfully!</p>
+                            <button class="upload-button" @click="navigateToGalleryWithPhoto(lastUploadedPhotoId); closeCamera();" style="background: var(--button-success);">
+                                View in Gallery
+                            </button>
+                        </div>
+                        <div v-else class="camera-controls">
+                            <button class="upload-button" @click="retakePhoto">
+                                Retake
+                            </button>
+                            <button class="upload-button" @click="uploadCaptured" :disabled="uploading">
+                                {{ uploading ? 'Uploading...' : 'Upload' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="cameraError" style="color: red; margin-top: 10px;">
+                    {{ cameraError }}
+                </div>
+            </div>
+        </div>
+        
+        <div v-if="showNameModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <h2>Welcome to Pictoria!</h2>
+                <p style="margin: 20px 0; color: #666;">Please enter your name to continue</p>
+                
+                <input 
+                    type="text" 
+                    v-model="userName" 
+                    placeholder="Your name"
+                    @keyup.enter="createUser"
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px;"
+                >
+                
+                <div v-if="nameError" style="color: red; margin-top: 10px;">
+                    {{ nameError }}
+                </div>
+                
+                <button 
+                    class="upload-button" 
+                    @click="createUser" 
+                    :disabled="!userName.trim()"
+                    style="margin-top: 20px; width: 100%;"
+                >
+                    Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        const { createRouter, createWebHashHistory } = VueRouter;
+        
+        // Configure axios to send cookies with all requests
+        axios.defaults.withCredentials = true;
+
+        // Define route components
+        const HomeView = {
+            template: `
+                <div class="container">
+                    <div class="header">
+                        <h1>Pictoria</h1>
+                        <p>Upload or capture your photos</p>
+                        <p v-if="$root.currentUser" style="margin-top: 10px; color: var(--text-secondary); font-size: 14px;">
+                            Welcome, {{ $root.currentUser.name }}!
+                        </p>
+                    </div>
+
+                    <div class="action-buttons">
+                        <div class="action-button" @click="$root.showUpload">
+                            <i data-lucide="upload"></i>
+                            <h2>Upload Photo</h2>
+                            <p>Choose from your device</p>
+                        </div>
+
+                        <div class="action-button" @click="$root.showCamera">
+                            <i data-lucide="camera"></i>
+                            <h2>Capture Photo</h2>
+                            <p>Use your camera</p>
+                            <p v-if="$root.showCameraFallback" style="margin-top: 10px; font-size: 12px;">
+                                <a href="#" @click.stop.prevent="$root.showCustomCamera" style="color: var(--button-primary); text-decoration: underline;">
+                                    Use web camera instead
+                                </a>
+                            </p>
+                            <input 
+                                type="file" 
+                                ref="cameraInput" 
+                                accept="image/*" 
+                                capture="environment"
+                                @change="$root.handleCameraCapture"
+                                style="display: none;"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="gallery-button">
+                        <router-link to="/gallery" class="view-gallery-button">
+                            <h3>View Gallery</h3>
+                        </router-link>
+                    </div>
+                </div>
+            `,
+            mounted() {
+                // Initialize Lucide icons for this component
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            }
+        };
+
+        const GalleryView = {
+            template: `
+                <div style="position: relative;">
+                    <div class="sticky-nav">
+                        <div class="sticky-nav-content">
+                            <router-link to="/" class="back-button" style="text-decoration: none;">
+                                Return to Upload
+                            </router-link>
+                        </div>
+                    </div>
+                    
+                    <div class="container">
+                        <div v-if="$root.loading" class="loading">
+                            <div class="spinner"></div>
+                            <p>Loading photos...</p>
+                        </div>
+
+                        <div v-else class="photo-grid">
+                            <div v-for="photo in $root.photos" :key="photo.id" :id="'photo-' + photo.id" class="photo-item">
+                                <img :src="$root.getPhotoUrl(photo)" :alt="photo.originalName">
+                                <div class="photo-info" v-if="photo.uploaderName">
+                                    <p style="font-size: 14px; color: #3498db; font-weight: 500;">
+                                        Uploaded by {{ photo.uploaderName }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-if="!$root.loading && $root.photos.length === 0" class="loading">
+                            <p>No photos yet. Upload or capture your first photo!</p>
+                        </div>
+                    </div>
+                </div>
+            `,
+            mounted() {
+                // Check for photo ID in hash
+                const hash = this.$route.hash;
+                if (hash && hash.startsWith('#photo-')) {
+                    const photoId = hash.replace('#photo-', '');
+                    this.$nextTick(() => {
+                        setTimeout(() => {
+                            const element = document.getElementById('photo-' + photoId);
+                            if (element) {
+                                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 100);
+                    });
+                }
+            }
+        };
+
+        // Define routes
+        const routes = [
+            { path: '/', component: HomeView },
+            { path: '/gallery', component: GalleryView }
+        ];
+
+        // Create router
+        const router = createRouter({
+            history: createWebHashHistory(),
+            routes
+        });
+
+        // Create app
+        const app = createApp({
+            data() {
+                return {
+                    showUploadModal: false,
+                    showCameraModal: false,
+                    isDragging: false,
+                    selectedFiles: [],
+                    uploading: false,
+                    uploadError: null,
+                    uploadProgress: { current: 0, total: 0 },
+                    stream: null,
+                    capturedImage: null,
+                    cameraError: null,
+                    photos: [],
+                    loading: false,
+                    cameras: [],
+                    currentCameraId: null,
+                    facingMode: 'environment',
+                    currentUser: null,
+                    showNameModal: false,
+                    userName: '',
+                    nameError: null,
+                    uploadingNative: false,
+                    uploadSuccess: false,
+                    fileUploadSuccess: false,
+                    lastUploadedPhotoId: null,
+                    showCameraFallback: false,
+                    nativeCameraTimeout: null
+                }
+            },
+            methods: {
+                showUpload() {
+                    this.showUploadModal = true;
+                    this.uploadError = null;
+                    this.selectedFiles = [];
+                    this.uploadProgress = { current: 0, total: 0 };
+                },
+                closeUpload() {
+                    this.showUploadModal = false;
+                    this.selectedFiles = [];
+                    this.uploadError = null;
+                    this.uploadProgress = { current: 0, total: 0 };
+                    this.fileUploadSuccess = false;
+                },
+                async showCamera(event) {
+                    // Try native camera first on mobile
+                    if (event) event.stopPropagation();
+                    
+                    // Clear any existing timeout
+                    if (this.nativeCameraTimeout) {
+                        clearTimeout(this.nativeCameraTimeout);
+                        this.nativeCameraTimeout = null;
+                    }
+                    
+                    // Reset fallback option
+                    this.showCameraFallback = false;
+                    
+                    // Access the camera input through the component's ref
+                    const cameraButton = event.currentTarget;
+                    const cameraInput = cameraButton.querySelector('input[type="file"]');
+                    if (cameraInput) {
+                        cameraInput.click();
+                        
+                        // Show fallback option after a delay
+                        this.nativeCameraTimeout = setTimeout(() => {
+                            if (!this.uploadingNative && !this.showCameraModal) {
+                                this.showCameraFallback = true;
+                            }
+                        }, 2000);
+                        return;
+                    }
+                    
+                    // Fallback to custom camera
+                    this.showCustomCamera();
+                },
+                async showCustomCamera() {
+                    this.showCameraModal = true;
+                    this.cameraError = null;
+                    await this.loadCameras();
+                    this.startCamera();
+                },
+                closeCamera() {
+                    this.showCameraModal = false;
+                    this.stopCamera();
+                    this.capturedImage = null;
+                    this.uploadSuccess = false;
+                },
+                async loadCameras() {
+                    try {
+                        const devices = await navigator.mediaDevices.enumerateDevices();
+                        this.cameras = devices.filter(device => device.kind === 'videoinput');
+                        if (this.cameras.length > 0 && !this.currentCameraId) {
+                            this.currentCameraId = this.cameras[0].deviceId;
+                        }
+                    } catch (error) {
+                        console.error('Failed to load cameras:', error);
+                    }
+                },
+                async startCamera() {
+                    try {
+                        this.stopCamera();
+                        
+                        const constraints = { 
+                            video: this.currentCameraId 
+                                ? { deviceId: { exact: this.currentCameraId } }
+                                : { facingMode: this.facingMode }
+                        };
+                        
+                        this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                        this.$refs.video.srcObject = this.stream;
+                    } catch (error) {
+                        this.cameraError = 'Failed to access camera. Please check permissions.';
+                        console.error('Camera error:', error);
+                    }
+                },
+                async switchCamera() {
+                    if (this.cameras.length <= 1) return;
+                    
+                    const currentIndex = this.cameras.findIndex(cam => cam.deviceId === this.currentCameraId);
+                    const nextIndex = (currentIndex + 1) % this.cameras.length;
+                    this.currentCameraId = this.cameras[nextIndex].deviceId;
+                    
+                    await this.startCamera();
+                },
+                stopCamera() {
+                    if (this.stream) {
+                        this.stream.getTracks().forEach(track => track.stop());
+                        this.stream = null;
+                    }
+                },
+                capturePhoto() {
+                    const video = this.$refs.video;
+                    const canvas = this.$refs.canvas;
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const context = canvas.getContext('2d');
+                    context.drawImage(video, 0, 0);
+                    this.capturedImage = canvas.toDataURL('image/jpeg');
+                    this.stopCamera();
+                },
+                retakePhoto() {
+                    this.capturedImage = null;
+                    this.startCamera();
+                },
+                handleDrop(e) {
+                    this.isDragging = false;
+                    const files = Array.from(e.dataTransfer.files);
+                    if (files.length > 0) {
+                        this.selectedFiles = files;
+                        // Automatically upload the files
+                        this.uploadFiles();
+                    }
+                },
+                handleFileSelect(e) {
+                    const files = Array.from(e.target.files);
+                    if (files.length > 0) {
+                        this.selectedFiles = files;
+                        // Automatically upload the files
+                        this.uploadFiles();
+                    }
+                },
+                async uploadFiles() {
+                    if (this.selectedFiles.length === 0) return;
+
+                    this.uploading = true;
+                    this.uploadError = null;
+                    this.fileUploadSuccess = false;
+                    this.uploadProgress.total = this.selectedFiles.length;
+                    this.uploadProgress.current = 0;
+
+                    const failedUploads = [];
+                    let lastPhotoId = null;
+
+                    for (const file of this.selectedFiles) {
+                        console.log('Uploading file:', file.name, 'Type:', file.type);
+
+                        const formData = new FormData();
+                        formData.append('photo', file);
+
+                        try {
+                            const response = await axios.post('/api/upload', formData, {
+                                headers: {
+                                    'Content-Type': 'multipart/form-data'
+                                }
+                            });
+                            this.uploadProgress.current++;
+                            if (response.data?.id) {
+                                lastPhotoId = response.data.id;
+                            }
+                        } catch (error) {
+                            failedUploads.push(file.name);
+                            console.error('Upload error for', file.name, ':', error);
+                        }
+                    }
+
+                    if (failedUploads.length > 0) {
+                        this.uploadError = `Failed to upload: ${failedUploads.join(', ')}`;
+                    } else {
+                        this.fileUploadSuccess = true;
+                        this.lastUploadedPhotoId = lastPhotoId;
+                    }
+                    
+                    this.loadPhotos();
+                    this.uploading = false;
+                },
+                async uploadCaptured() {
+                    if (!this.capturedImage) return;
+
+                    this.uploading = true;
+                    this.cameraError = null;
+
+                    try {
+                        const blob = await fetch(this.capturedImage).then(r => r.blob());
+                        const formData = new FormData();
+                        formData.append('photo', blob, 'captured.jpg');
+
+                        const response = await axios.post('/api/upload', formData, {
+                            headers: {
+                                'Content-Type': 'multipart/form-data'
+                            }
+                        });
+
+                        // Capture the uploaded photo ID
+                        if (response.data && response.data.id) {
+                            this.lastUploadedPhotoId = response.data.id;
+                        }
+                        
+                        this.uploadSuccess = true;
+                        this.loadPhotos();
+                        // Don't close camera immediately to show success message
+                    } catch (error) {
+                        this.cameraError = 'Failed to upload photo. Please try again.';
+                        console.error('Upload error:', error);
+                    } finally {
+                        this.uploading = false;
+                    }
+                },
+                async loadPhotos() {
+                    this.loading = true;
+                    try {
+                        const response = await axios.get('/api/photos');
+                        this.photos = response.data.reverse();
+                    } catch (error) {
+                        console.error('Failed to load photos:', error);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+                getPhotoUrl(photo) {
+                    const ext = photo.mimeType === 'image/jpeg' ? '.jpg' : '.png';
+                    return `/uploads/${photo.id}${ext}`;
+                },
+                formatDate(dateString) {
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                },
+                async checkUserAuth() {
+                    try {
+                        const response = await axios.get('/api/user/current');
+                        this.currentUser = response.data.user;
+                        if (!this.currentUser) {
+                            this.showNameModal = true;
+                        }
+                    } catch (error) {
+                        console.error('Failed to check auth:', error);
+                        this.showNameModal = true;
+                    }
+                },
+                async createUser() {
+                    if (!this.userName.trim()) return;
+                    
+                    this.nameError = null;
+                    try {
+                        const response = await axios.post('/api/user/create', {
+                            name: this.userName.trim()
+                        });
+                        this.currentUser = response.data;
+                        this.showNameModal = false;
+                        this.userName = '';
+                    } catch (error) {
+                        this.nameError = 'Failed to create user. Please try again.';
+                        console.error('Failed to create user:', error);
+                    }
+                },
+                async handleCameraCapture(event) {
+                    // Clear the timeout since user interacted with native camera
+                    if (this.nativeCameraTimeout) {
+                        clearTimeout(this.nativeCameraTimeout);
+                        this.nativeCameraTimeout = null;
+                    }
+                    
+                    const files = event.target.files;
+                    if (files && files.length > 0) {
+                        // User captured a photo with native camera
+                        const file = files[0];
+                        
+                        this.uploadingNative = true;
+                        
+                        const formData = new FormData();
+                        formData.append('photo', file);
+                        
+                        try {
+                            const response = await axios.post('/api/upload', formData, {
+                                headers: {
+                                    'Content-Type': 'multipart/form-data'
+                                }
+                            });
+                            
+                            // Navigate to gallery with photo
+                            const photoId = response.data?.id;
+                            this.loadPhotos();
+                            this.navigateToGalleryWithPhoto(photoId);
+                        } catch (error) {
+                            console.error('Upload error:', error);
+                            alert('Failed to upload photo. Please try again.');
+                        } finally {
+                            this.uploadingNative = false;
+                        }
+                    }
+                    
+                    // Reset the input for next use
+                    event.target.value = '';
+                },
+                navigateToGalleryWithPhoto(photoId) {
+                    if (photoId) {
+                        this.$router.push({ path: '/gallery', hash: '#photo-' + photoId });
+                    } else {
+                        this.$router.push('/gallery');
+                    }
+                }
+            },
+            mounted() {
+                this.checkUserAuth();
+                this.loadPhotos();
+                // Initialize Lucide icons
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            },
+            updated() {
+                // Re-initialize Lucide icons when DOM updates
+                this.$nextTick(() => {
+                    lucide.createIcons();
+                });
+            }
+        });
+
+        // Use router
+        app.use(router);
+
+        // Mount app
+        app.mount('#app');
+    </script>
+</body>
+</html>

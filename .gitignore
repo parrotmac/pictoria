@@ -1,0 +1,4 @@
+*.log
+uploads/
+tmp/
+storage.json
