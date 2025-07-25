@@ -60,27 +60,27 @@ func main() {
 	os.MkdirAll("static", 0755)
 
 	// Initialize storage based on environment
-	storageType := os.Getenv("STORAGE_TYPE")
+	// storageType := os.Getenv("STORAGE_TYPE")
 
 	var err error
-	switch storageType {
-	case "postgres":
-		databaseURL := os.Getenv("DATABASE_URL")
-		if databaseURL == "" {
-			log.Fatal("DATABASE_URL environment variable is required when STORAGE_TYPE=postgres")
-		}
-		storage, err = NewPostgresStorage(databaseURL)
-		if err != nil {
-			log.Fatalf("Failed to initialize PostgreSQL storage: %v", err)
-		}
-		fmt.Println("Using PostgreSQL storage")
-	default:
-		storage, err = NewFileStorage("storage.json")
-		if err != nil {
-			log.Fatalf("Failed to initialize file storage: %v", err)
-		}
-		fmt.Println("Using file-based storage")
+	// switch storageType {
+	// case "postgres":
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
 	}
+	storage, err = NewPostgresStorage(databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to initialize PostgreSQL storage: %v", err)
+	}
+	fmt.Println("Using PostgreSQL storage")
+	// default:
+	// 	storage, err = NewFileStorage("storage.json")
+	// 	if err != nil {
+	// 		log.Fatalf("Failed to initialize file storage: %v", err)
+	// 	}
+	// 	fmt.Println("Using file-based storage")
+	// }
 
 	http.HandleFunc("/api/health", handleHealth)
 	http.HandleFunc("/api/direct-networking", handleDirectNetworkRouting)
@@ -214,8 +214,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user is authenticated
-	user := getUserFromRequest(r)
+	user := getUserFromRequest(r, w)
 	if user == nil {
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
@@ -373,7 +372,24 @@ func ensureCookieDomain(request *http.Request) *http.Response {
 }
 
 // Get user from session cookie
-func getUserFromRequest(r *http.Request) *User {
+func getUserFromRequest(r *http.Request, w http.ResponseWriter) *User {
+	username := strings.TrimSpace(r.URL.Query().Get("username"))
+	if username != "" {
+		// Find user by username
+		user, err := storage.GetUserByUsername(r.Context(), username)
+		if err != nil {
+			log.Printf("Failed to get user by username %s: %v", username, err)
+			http.Error(w, "User not found", http.StatusNotFound)
+			return nil
+		}
+		if user.ID == "" {
+			http.Error(w, "User not found", http.StatusNotFound)
+			return nil
+		}
+		log.Printf("User found: %s (ID: %s)", user.Name, user.ID)
+		return &user
+	}
+
 	cookie, err := r.Cookie("session")
 	if err != nil {
 		return nil
@@ -404,7 +420,7 @@ func handleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := getUserFromRequest(r)
+	user := getUserFromRequest(r, w)
 
 	response := struct {
 		User *User `json:"user"`
@@ -466,7 +482,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Value:    session.ID,
 		Domain:   "photos.parkers.wedding",
 		Path:     "/",
-		HttpOnly: true,
+		HttpOnly: false,
 		MaxAge:   30 * 24 * 60 * 60, // 30 days
 	})
 
@@ -481,7 +497,7 @@ func handleDeletePhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get authenticated user
-	user := getUserFromRequest(r)
+	user := getUserFromRequest(r, w)
 	if user == nil {
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return

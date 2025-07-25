@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -22,6 +23,7 @@ type Storage interface {
 	// User operations
 	CreateUser(user User) error
 	GetUser(id string) (User, error)
+	GetUserByUsername(ctx context.Context, username string) (User, error) // Assuming this method exists
 	GetAllUsers() ([]User, error)
 	UpdateUser(user User) error
 	DeleteUser(id string) error
@@ -50,29 +52,29 @@ type StorageData struct {
 	Version  int                `json:"version"`
 }
 
-func NewFileStorage(filename string) (Storage, error) {
-	fs := &FileStorage{
-		filename: filename,
-		data: &StorageData{
-			Photos:   []Photo{},
-			Users:    make(map[string]User),
-			Sessions: make(map[string]Session),
-			Version:  1,
-		},
-	}
+// func NewFileStorage(filename string) (Storage, error) {
+// 	fs := &FileStorage{
+// 		filename: filename,
+// 		data: &StorageData{
+// 			Photos:   []Photo{},
+// 			Users:    make(map[string]User),
+// 			Sessions: make(map[string]Session),
+// 			Version:  1,
+// 		},
+// 	}
 
-	if err := fs.Load(); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		// File doesn't exist, save initial empty state
-		if err := fs.saveInternal(); err != nil {
-			return nil, err
-		}
-	}
+// 	if err := fs.Load(); err != nil {
+// 		if !os.IsNotExist(err) {
+// 			return nil, err
+// 		}
+// 		// File doesn't exist, save initial empty state
+// 		if err := fs.saveInternal(); err != nil {
+// 			return nil, err
+// 		}
+// 	}
 
-	return fs, nil
-}
+// 	return fs, nil
+// }
 
 func (fs *FileStorage) Load() error {
 	fs.mu.Lock()

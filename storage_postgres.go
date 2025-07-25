@@ -41,7 +41,7 @@ func NewPostgresStorage(databaseURL string) (Storage, error) {
 // Photo operations
 func (ps *PostgresStorage) AddPhoto(p Photo) error {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(p.UploadedBy)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -65,7 +65,7 @@ func (ps *PostgresStorage) AddPhoto(p Photo) error {
 
 func (ps *PostgresStorage) GetPhoto(id string) (Photo, error) {
 	ctx := context.Background()
-	
+
 	photoUUID, err := uuid.Parse(id)
 	if err != nil {
 		return Photo{}, fmt.Errorf("invalid photo ID: %w", err)
@@ -75,7 +75,7 @@ func (ps *PostgresStorage) GetPhoto(id string) (Photo, error) {
 		Where(photo.ID(photoUUID)).
 		WithUploader().
 		Only(ctx)
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return Photo{}, ErrNotFound
@@ -94,11 +94,11 @@ func (ps *PostgresStorage) GetPhoto(id string) (Photo, error) {
 
 func (ps *PostgresStorage) GetAllPhotos() ([]Photo, error) {
 	ctx := context.Background()
-	
+
 	photos, err := ps.client.Photo.Query().
 		WithUploader().
 		All(ctx)
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (ps *PostgresStorage) GetAllPhotos() ([]Photo, error) {
 
 func (ps *PostgresStorage) DeletePhoto(id string) error {
 	ctx := context.Background()
-	
+
 	photoUUID, err := uuid.Parse(id)
 	if err != nil {
 		return fmt.Errorf("invalid photo ID: %w", err)
@@ -128,7 +128,7 @@ func (ps *PostgresStorage) DeletePhoto(id string) error {
 	count, err := ps.client.Photo.Delete().
 		Where(photo.ID(photoUUID)).
 		Exec(ctx)
-	
+
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (ps *PostgresStorage) DeletePhoto(id string) error {
 // User operations
 func (ps *PostgresStorage) CreateUser(u User) error {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(u.ID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -167,7 +167,7 @@ func (ps *PostgresStorage) CreateUser(u User) error {
 
 func (ps *PostgresStorage) GetUser(id string) (User, error) {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
 		return User{}, fmt.Errorf("invalid user ID: %w", err)
@@ -176,7 +176,7 @@ func (ps *PostgresStorage) GetUser(id string) (User, error) {
 	u, err := ps.client.User.Query().
 		Where(user.ID(userUUID)).
 		Only(ctx)
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return User{}, ErrNotFound
@@ -191,9 +191,26 @@ func (ps *PostgresStorage) GetUser(id string) (User, error) {
 	}, nil
 }
 
+func (ps *PostgresStorage) GetUserByUsername(ctx context.Context, username string) (User, error) {
+	u, err := ps.client.User.Query().
+		Where(user.Name(username)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return User{}, ErrNotFound
+		}
+		return User{}, err
+	}
+	return User{
+		ID:        u.ID.String(),
+		Name:      u.Name,
+		CreatedAt: u.CreatedAt,
+	}, nil
+}
+
 func (ps *PostgresStorage) GetAllUsers() ([]User, error) {
 	ctx := context.Background()
-	
+
 	users, err := ps.client.User.Query().All(ctx)
 	if err != nil {
 		return nil, err
@@ -213,7 +230,7 @@ func (ps *PostgresStorage) GetAllUsers() ([]User, error) {
 
 func (ps *PostgresStorage) UpdateUser(u User) error {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(u.ID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -223,7 +240,7 @@ func (ps *PostgresStorage) UpdateUser(u User) error {
 		Where(user.ID(userUUID)).
 		SetName(u.Name).
 		Save(ctx)
-	
+
 	if err != nil {
 		return err
 	}
@@ -237,7 +254,7 @@ func (ps *PostgresStorage) UpdateUser(u User) error {
 
 func (ps *PostgresStorage) DeleteUser(id string) error {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(id)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -246,7 +263,7 @@ func (ps *PostgresStorage) DeleteUser(id string) error {
 	count, err := ps.client.User.Delete().
 		Where(user.ID(userUUID)).
 		Exec(ctx)
-	
+
 	if err != nil {
 		return err
 	}
@@ -261,7 +278,7 @@ func (ps *PostgresStorage) DeleteUser(id string) error {
 // Session operations
 func (ps *PostgresStorage) CreateSession(s Session) error {
 	ctx := context.Background()
-	
+
 	userUUID, err := uuid.Parse(s.UserID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -285,12 +302,12 @@ func (ps *PostgresStorage) CreateSession(s Session) error {
 
 func (ps *PostgresStorage) GetSession(id string) (Session, error) {
 	ctx := context.Background()
-	
+
 	s, err := ps.client.Session.Query().
 		Where(session.ID(id)).
 		WithUser().
 		Only(ctx)
-	
+
 	if err != nil {
 		if ent.IsNotFound(err) {
 			return Session{}, ErrNotFound
@@ -307,11 +324,11 @@ func (ps *PostgresStorage) GetSession(id string) (Session, error) {
 
 func (ps *PostgresStorage) DeleteSession(id string) error {
 	ctx := context.Background()
-	
+
 	count, err := ps.client.Session.Delete().
 		Where(session.ID(id)).
 		Exec(ctx)
-	
+
 	if err != nil {
 		return err
 	}
@@ -325,11 +342,11 @@ func (ps *PostgresStorage) DeleteSession(id string) error {
 
 func (ps *PostgresStorage) GetAllSessions() ([]Session, error) {
 	ctx := context.Background()
-	
+
 	sessions, err := ps.client.Session.Query().
 		WithUser().
 		All(ctx)
-	
+
 	if err != nil {
 		return nil, err
 	}
