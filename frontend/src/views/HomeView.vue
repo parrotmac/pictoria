@@ -28,6 +28,14 @@
         :disabled="uploading"
       />
 
+      <div class="action-button" @click="(($refs.fileInput as HTMLInputElement).click())" :disabled="uploading">
+        <Camera :size="50" />
+        <h2>Capture Photo</h2>
+        <p>Use your camera</p>
+      </div>
+    </div>
+
+    <div class="action-buttons">
       <div v-if="uploading" class="upload-progress">
         <div class="spinner"></div>
         <p v-if="uploadProgress.total > 1">
@@ -37,13 +45,8 @@
           Uploading {{ selectedFiles[0].name }}...
         </p>
       </div>
-
-      <div class="action-button" @click="(($refs.fileInput as HTMLInputElement).click())" :disabled="uploading">
-        <Camera :size="50" />
-        <h2>Capture Photo</h2>
-        <p>Use your camera</p>
-      </div>
     </div>
+
 
     <div class="gallery-button">
       <router-link to="/gallery" class="view-gallery-button">
@@ -118,6 +121,18 @@ async function uploadFiles() {
   const failedUploads: string[] = []
 
   for (const file of selectedFiles.value) {
+      
+    const a = document.createElement(`a`)
+
+    var reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = function () {
+      a.href = reader.result as string
+      console.log(a.href)
+      a.download = file.name
+      a.dispatchEvent(new MouseEvent(`click`))
+    };
+
     try {
       const result = await photosStore.uploadPhoto(nameStore.value, file)
       uploadProgress.value.current++
