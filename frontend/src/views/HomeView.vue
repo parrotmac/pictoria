@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <div class="header">
-      <h1>Pictoria 📸</h1>
+      <h1>Parker's Wedding 📸</h1>
       <small>Upload or capture your photos</small>
       <p v-if="nameStore" class="welcome-text">
         Welcome, {{ nameStore }}!
