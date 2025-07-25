@@ -14,7 +14,7 @@ export const useNetworkingStore = defineStore('networking', () => {
     const directApiAvailable = ref(false)
 
     const showBanner = computed(() => {
-        directNetworkingConnectivityDetails && !directApiAvailable
+        return directNetworkingConnectivityDetails && !directApiAvailable
     })
 
     async function fetchDirectionConnectionDetails(): Promise<NetworkRoutingHint | null> {
