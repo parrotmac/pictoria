@@ -5,6 +5,7 @@
       <small>Upload or capture your photos</small>
       <p v-if="nameStore" class="welcome-text">
         Welcome, {{ nameStore }}!
+        <span @click="nameStore = ''" style="text-decoration:underline;cursor:pointer">Change</span>
       </p>
     </div>
 

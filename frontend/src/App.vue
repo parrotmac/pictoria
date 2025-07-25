@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, provide, watch } from 'vue'
 import { nameStore } from './stores/auth'
 import AuthModal from './components/AuthModal.vue'
 import OfflineIndicator from './components/OfflineIndicator.vue'
@@ -29,12 +29,11 @@ provide('showAuthModal', (show: boolean) => {
   showAuthModal.value = show
 })
 
-onMounted(async () => {
-  // Show auth modal if not authenticated
-  if (!nameStore.value) {
+watch(nameStore, (newVal) => {
+  if (!newVal) {
     showAuthModal.value = true
   }
-})
+}, { immediate: true })
 </script>
 
 <style>
