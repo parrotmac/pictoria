@@ -16,7 +16,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide, watch } from 'vue'
+import { ref, provide, watch } from 'vue'
 import { nameStore } from './stores/auth'
 import AuthModal from './components/AuthModal.vue'
 import OfflineIndicator from './components/OfflineIndicator.vue'
@@ -29,7 +29,7 @@ provide('showAuthModal', (show: boolean) => {
   showAuthModal.value = show
 })
 
-watch(nameStore, (newVal) => {
+watch(nameStore, (newVal: string) => {
   if (!newVal) {
     showAuthModal.value = true
   }
