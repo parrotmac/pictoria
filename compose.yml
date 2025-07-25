@@ -1,7 +1,7 @@
-version: "2"
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: pictoria-db
     environment:
       POSTGRES_USER: pictoria
       POSTGRES_PASSWORD: pictoria_secret
@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pictoria"]
       interval: 10s
@@ -18,11 +19,13 @@ services:
 
   pictoria:
     build: .
-    privileged: true
+    container_name: pictoria-app
     ports:
       - "8080:8080"
     volumes:
-      - pictoria-uploads:/root/uploads
+      # Persist uploads directory
+      # - ./uploads:/root/uploads
+      # Persist user data
       - pictoria-data:/root/data
     environment:
       - PORT=8080
@@ -30,40 +33,26 @@ services:
       - DATABASE_URL=postgres://pictoria:pictoria_secret@postgres:5432/pictoria?sslmode=disable
     depends_on:
       postgres:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
 
   caddy:
     build:
       context: ./direct-proxy
       dockerfile: Dockerfile
+    restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "80:80"
-      - "443:443"
+      - "8880:80"  # HTTP
+      - "8443:443" # HTTPS
     volumes:
+      # - ./conf:/etc/caddy
+      - ./site:/srv
       - caddy_data:/data
       - caddy_config:/config
-    links:
-      - pictoria:pictoria
-  
-  dnsmasq:
-    build:
-      context: ./dnsmasq
-    privileged: true
-    network_mode: "host"
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-  
-  cloudsync:
-    build:
-      context: ./image-uploader
-    volumes:
-      - pictoria-uploads:/root/uploads
 
 volumes:
-  pictoria-uploads:
   pictoria-data:
   postgres-data:
   caddy_data:

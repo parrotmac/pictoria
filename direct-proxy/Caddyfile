@@ -1,0 +1,13 @@
+direct.photos.parkers.wedding, :80 {
+    reverse_proxy http://pictoria:8080 {
+        header_up Host {http.reverse_proxy.upstream.hostport}
+        header_up X-Forwarded-For {http.request.remote.addr}
+        header_up X-Forwarded-Proto {http.request.scheme}
+        header_up X-Real-IP {http.request.remote.addr}
+    }
+
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+        resolvers 1.1.1.1
+    }
+}

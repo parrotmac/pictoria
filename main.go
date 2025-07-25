@@ -18,6 +18,9 @@ import (
 
 	"github.com/gen2brain/heic"
 	"github.com/google/uuid"
+
+	"tailscale.com/tsnet"
+	"tailscale.com/types/logger"
 )
 
 type Photo struct {
@@ -53,29 +56,94 @@ func generateSessionID() string {
 }
 
 func main() {
-	// Initialize HEIC decoder
-	heic.Init()
-
 	os.MkdirAll("uploads", 0755)
 	os.MkdirAll("static", 0755)
 
-	// Initialize storage
+	// Initialize storage based on environment
+	storageType := os.Getenv("STORAGE_TYPE")
+
 	var err error
-	storage, err = NewFileStorage("storage.json")
-	if err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+	switch storageType {
+	case "postgres":
+		databaseURL := os.Getenv("DATABASE_URL")
+		if databaseURL == "" {
+			log.Fatal("DATABASE_URL environment variable is required when STORAGE_TYPE=postgres")
+		}
+		storage, err = NewPostgresStorage(databaseURL)
+		if err != nil {
+			log.Fatalf("Failed to initialize PostgreSQL storage: %v", err)
+		}
+		fmt.Println("Using PostgreSQL storage")
+	default:
+		storage, err = NewFileStorage("storage.json")
+		if err != nil {
+			log.Fatalf("Failed to initialize file storage: %v", err)
+		}
+		fmt.Println("Using file-based storage")
 	}
 
-	http.HandleFunc("/", serveIndex)
+	http.HandleFunc("/api/health", handleHealth)
+	http.HandleFunc("/api/direct-networking", handleDirectNetworkRouting)
 	http.HandleFunc("/api/upload", handleUpload)
 	http.HandleFunc("/api/photos", handleGetPhotos)
 	http.HandleFunc("/api/user/current", handleGetCurrentUser)
 	http.HandleFunc("/api/user/create", handleCreateUser)
-	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	fmt.Println("Server starting on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", corsMiddleware(http.DefaultServeMux)))
+	// Handle photo deletion with pattern matching
+	http.HandleFunc("/api/photos/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/photos/") {
+			handleDeletePhoto(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("frontend/dist/assets"))))
+	http.Handle("/gallery", http.StripPrefix("/gallery", http.FileServer(http.Dir("frontend/dist"))))
+	http.Handle("/", http.FileServer(http.Dir("frontend/dist")))
+
+	tailscaleFunnelHostname := strings.TrimSpace(os.Getenv("TAILSCALE_FUNNEL_HOSTNAME"))
+	log.Printf("TAILSCALE_FUNNEL_HOSTNAME=%s", tailscaleFunnelHostname)
+
+	tailscaleStateLocation := strings.TrimSpace(os.Getenv("TAILSCALE_STATE_LOCATION"))
+	if tailscaleStateLocation == "" {
+		tailscaleStateLocation = "./ts-funnel-config"
+	}
+	log.Printf("TAILSCALE_STATE_LOCATION=%s", tailscaleStateLocation)
+
+	var tailscaleLogger logger.Logf
+	tailscaleEnableVerboseLogs := strings.TrimSpace(os.Getenv("TAILSCALE_VERBOSE_LOGS"))
+	if tailscaleEnableVerboseLogs == "true" || tailscaleEnableVerboseLogs == "1" {
+		tailscaleLogger = log.Printf
+	}
+
+	s := &tsnet.Server{
+		Dir:          tailscaleStateLocation,
+		Hostname:     tailscaleFunnelHostname,
+		Logf:         tailscaleLogger,
+		RunWebClient: true,
+	}
+	defer s.Close()
+
+	ln, err := s.ListenFunnel("tcp", ":443")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer ln.Close()
+
+	fmt.Printf("Listening on https://%v\n", s.CertDomains()[0])
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Printf("Server starting on http://localhost:%s\n", port)
+
+	go func() {
+		log.Fatal(http.Serve(ln, corsMiddleware(http.DefaultServeMux)))
+	}()
+	log.Fatal(http.ListenAndServe(":"+port, corsMiddleware(http.DefaultServeMux)))
 }
 
 // CORS middleware to handle credentials
@@ -95,8 +163,49 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func serveIndex(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/index.html")
+type WiFiConnection struct {
+	SSID     string `json:"ssid"`
+	Password string `json:"password"`
+}
+
+type NetworkRoutingHint struct {
+	Wifi WiFiConnection `json:"wifi,omitempty"`
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status": "healthy",
+		"time":   time.Now().Format(time.RFC3339),
+	})
+}
+
+func handleDirectNetworkRouting(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	response := NetworkRoutingHint{
+		Wifi: WiFiConnection{
+			SSID:     "Parkers.Wedding",
+			Password: "parkers2025",
+		},
+	}
+
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		log.Printf("Failed to encode network routing hint: %v", err)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func handleUpload(w http.ResponseWriter, r *http.Request) {
@@ -106,13 +215,13 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is authenticated
-	user, _ := getUserFromRequest(r)
+	user := getUserFromRequest(r)
 	if user == nil {
 		http.Error(w, "Authentication required", http.StatusUnauthorized)
 		return
 	}
 
-	r.ParseMultipartForm(32 << 20) // 32MB max
+	r.ParseMultipartForm(128 << 20) // 128MB limit
 
 	file, header, err := r.FormFile("photo")
 	if err != nil {
@@ -130,13 +239,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Upload received - Filename: %s, MIME: %s, Extension: %s", filename, mimeType, ext)
 
 	var outputPath string
-	// Check if this is a HEIC file by extension (MIME type might be generic)
-	isHEIC := strings.ToLower(ext) == ".heic" || strings.ToLower(ext) == ".heif"
-
-	// Also check MIME type if available
-	if !isHEIC && (mimeType == "image/heic" || mimeType == "image/heif") {
-		isHEIC = true
-	}
+	isHEIC := strings.ToLower(ext) == ".heic" || strings.ToLower(ext) == ".heif" || mimeType == "image/heic" || mimeType == "image/heif"
 
 	if isHEIC {
 		outputPath = filepath.Join("uploads", photoID+".jpg")
@@ -247,33 +350,61 @@ func handleGetPhotos(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(enrichedPhotos)
 }
 
+func ensureCookieDomain(request *http.Request) *http.Response {
+	cookie, err := request.Cookie("session")
+	if err != nil {
+		return nil
+	}
+
+	if cookie.Domain == "" {
+		response := &http.Response{
+			StatusCode: http.StatusTemporaryRedirect,
+			Header:     make(http.Header),
+		}
+		response.Header.Set("Location", "https://photos.parkers.wedding/login")
+		response.Header.Set("Set-Cookie", "session=; Path=/; Domain=photos.parkers.wedding; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly")
+		response.Header.Set("Cache-Control", "no-cache, no-store, must-revalidate")
+		response.Header.Set("Pragma", "no-cache")
+		response.Header.Set("Expires", "0")
+		return response
+	}
+
+	return nil
+}
+
 // Get user from session cookie
-func getUserFromRequest(r *http.Request) (*User, *Session) {
+func getUserFromRequest(r *http.Request) *User {
 	cookie, err := r.Cookie("session")
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
 	session, err := storage.GetSession(cookie.Value)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
 	user, err := storage.GetUser(session.UserID)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 
-	return &user, &session
+	return &user
 }
 
 func handleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	if cookieFix := ensureCookieDomain(r); cookieFix != nil {
+		http.Error(w, "Session cookie domain is not set correctly", http.StatusTemporaryRedirect)
+		cookieFix.Write(w)
+		return
+	}
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	user, _ := getUserFromRequest(r)
+	user := getUserFromRequest(r)
 
 	response := struct {
 		User *User `json:"user"`
@@ -333,6 +464,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session",
 		Value:    session.ID,
+		Domain:   "photos.parkers.wedding",
 		Path:     "/",
 		HttpOnly: true,
 		MaxAge:   30 * 24 * 60 * 60, // 30 days
@@ -340,4 +472,63 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
+}
+
+func handleDeletePhoto(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get authenticated user
+	user := getUserFromRequest(r)
+	if user == nil {
+		http.Error(w, "Authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract photo ID from URL path
+	path := r.URL.Path
+	prefix := "/api/photos/"
+	if !strings.HasPrefix(path, prefix) {
+		http.Error(w, "Invalid photo ID", http.StatusBadRequest)
+		return
+	}
+	photoID := strings.TrimPrefix(path, prefix)
+
+	// Get photo metadata
+	photo, err := storage.GetPhoto(photoID)
+	if err != nil {
+		http.Error(w, "Photo not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if user owns the photo
+	if photo.UploadedBy != user.ID {
+		http.Error(w, "You can only delete photos you uploaded", http.StatusForbidden)
+		return
+	}
+
+	// Delete the physical file
+	filename := photoID + filepath.Ext(photo.OriginalName)
+	// Handle converted HEIC files
+	if strings.HasSuffix(strings.ToLower(photo.OriginalName), ".heic") || strings.HasSuffix(strings.ToLower(photo.OriginalName), ".heif") {
+		filename = photoID + ".jpg"
+	}
+	filePath := filepath.Join("uploads", filename)
+
+	if err := os.Remove(filePath); err != nil {
+		log.Printf("Failed to delete file %s: %v", filePath, err)
+		// Continue with metadata deletion even if file deletion fails
+	}
+
+	// Delete photo metadata
+	if err := storage.DeletePhoto(photoID); err != nil {
+		log.Printf("Failed to delete photo metadata: %v", err)
+		http.Error(w, "Failed to delete photo", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Photo deleted: %s by user %s", photoID, user.ID)
+	w.WriteHeader(http.StatusNoContent)
 }

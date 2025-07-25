@@ -1,0 +1,23 @@
+{
+  "name": "Pictoria Photo Gallery",
+  "short_name": "Pictoria",
+  "description": "Upload and share your photos easily",
+  "theme_color": "#3498db",
+  "background_color": "#f5f5f5",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
