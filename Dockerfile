@@ -43,7 +43,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pictoria .
 FROM alpine:3.20
 
 # Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates bash curl vim lsof
 
 WORKDIR /root/
 
