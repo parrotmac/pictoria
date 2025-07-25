@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -141,9 +142,7 @@ func (ps *PostgresStorage) DeletePhoto(id string) error {
 }
 
 // User operations
-func (ps *PostgresStorage) CreateUser(u User) error {
-	ctx := context.Background()
-
+func (ps *PostgresStorage) CreateUser(ctx context.Context, u User) error {
 	userUUID, err := uuid.Parse(u.ID)
 	if err != nil {
 		return fmt.Errorf("invalid user ID: %w", err)
@@ -197,7 +196,13 @@ func (ps *PostgresStorage) GetUserByUsername(ctx context.Context, username strin
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return User{}, ErrNotFound
+			ps.CreateUser(ctx, User{
+				ID:        uuid.New().String(),
+				Name:      username,
+				CreatedAt: time.Now(),
+			})
+			// Oops, potential loop!
+			return ps.GetUserByUsername(ctx, username)
 		}
 		return User{}, err
 	}

@@ -459,7 +459,7 @@ func handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: time.Now(),
 	}
 
-	if err := storage.CreateUser(user); err != nil {
+	if err := storage.CreateUser(r.Context(), user); err != nil {
 		http.Error(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}

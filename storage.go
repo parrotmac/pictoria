@@ -21,9 +21,9 @@ type Storage interface {
 	DeletePhoto(id string) error
 
 	// User operations
-	CreateUser(user User) error
+	CreateUser(ctx context.Context, user User) error
 	GetUser(id string) (User, error)
-	GetUserByUsername(ctx context.Context, username string) (User, error) // Assuming this method exists
+	GetUserByUsername(ctx context.Context, username string) (User, error)
 	GetAllUsers() ([]User, error)
 	UpdateUser(user User) error
 	DeleteUser(id string) error
