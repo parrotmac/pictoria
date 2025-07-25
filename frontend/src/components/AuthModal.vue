@@ -5,22 +5,22 @@
       <p style="margin: 20px 0; color: var(--text-secondary);">
         Please enter your name to continue
       </p>
-      
-      <input 
-        type="text" 
-        v-model="userName" 
+
+      <input
+        type="text"
+        v-model="userName"
         placeholder="Your name"
         @keyup.enter="handleSubmit"
         class="auth-input"
       />
-      
+
       <div v-if="error" class="error-message">
         {{ error }}
       </div>
-      
-      <button 
+
+      <button
         class="btn"
-        @click="handleSubmit" 
+        @click="handleSubmit"
         :disabled="!userName.trim() || loading"
         style="margin-top: 20px; width: 100%;"
       >
@@ -32,32 +32,23 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useAuthStore } from '../stores/auth'
+import { nameStore } from '../stores/auth';
 
 const emit = defineEmits<{
   close: []
 }>()
 
-const authStore = useAuthStore()
 const userName = ref('')
 const error = ref('')
 const loading = ref(false)
 
 async function handleSubmit() {
   if (!userName.value.trim()) return
-  
-  loading.value = true
-  error.value = ''
-  
-  try {
-    await authStore.createUser(userName.value.trim())
-    emit('close')
-  } catch (err) {
-    error.value = 'Failed to create user. Please try again.'
-    console.error('Failed to create user:', err)
-  } finally {
-    loading.value = false
-  }
+
+  console.log(`new name`, userName.value.trim())
+  nameStore.value = userName.value.trim()
+  console.log(`new name`, nameStore.value)
+  emit('close')
 }
 </script>
 

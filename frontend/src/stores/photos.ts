@@ -29,7 +29,7 @@ export const usePhotosStore = defineStore('photos', () => {
     }
   }
 
-  async function uploadPhoto(file: File) {
+  async function uploadPhoto(name: string, file: File) {
     if (!navigator.onLine) {
       throw new Error('You are offline. Please connect to the internet to upload photos.')
     }
@@ -37,7 +37,7 @@ export const usePhotosStore = defineStore('photos', () => {
     const formData = new FormData()
     formData.append('photo', file)
 
-    const response = await api.post('/api/upload', formData, {
+    const response = await api.post(`/api/upload?username=${encodeURIComponent(name)}`, formData, {
       config: {
         headers: {
           'Content-Type': 'multipart/form-data'
@@ -74,15 +74,6 @@ export const usePhotosStore = defineStore('photos', () => {
     return path
   }
 
-  async function deletePhoto(photoId: string) {
-    const response = await api.delete(`/api/photos/${photoId}`)
-
-    // Remove photo from local state
-    photos.value = photos.value.filter(p => p.id !== photoId)
-
-    return response.data
-  }
-
   // Periodically update the active endpoint
   async function updateActiveEndpoint() {
     activeEndpoint.value = await api.getActiveEndpoint()
@@ -96,7 +87,6 @@ export const usePhotosStore = defineStore('photos', () => {
     fetchPhotos,
     uploadPhoto,
     getPhotoUrl,
-    deletePhoto,
     updateActiveEndpoint
   }
 })

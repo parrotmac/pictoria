@@ -3,9 +3,9 @@
     <div class="modal-content">
       <button class="modal-close" @click="$emit('close')">&times;</button>
       <h2>Upload Photo</h2>
-      
+
       <div v-if="!uploadSuccess">
-        <div 
+        <div
           class="upload-area"
           :class="{ dragover: isDragging, disabled: uploading }"
           @dragover.prevent="isDragging = true"
@@ -13,9 +13,9 @@
           @drop.prevent="handleDrop"
         >
           <p>Drag and drop your photos here or</p>
-          <input 
-            type="file" 
-            ref="fileInput" 
+          <input
+            type="file"
+            ref="fileInput"
             class="file-input"
             @change="handleFileSelect"
             accept="image/*"
@@ -55,6 +55,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { usePhotosStore } from '../stores/photos'
+import { nameStore } from '../stores/auth';
 
 const emit = defineEmits<{
   close: []
@@ -102,7 +103,7 @@ async function uploadFiles() {
 
   for (const file of selectedFiles.value) {
     try {
-      const result = await photosStore.uploadPhoto(file)
+      const result = await photosStore.uploadPhoto(nameStore.value, file)
       uploadProgress.value.current++
       if (result?.id) {
         lastUploadedPhotoId.value = result.id
@@ -118,7 +119,7 @@ async function uploadFiles() {
   } else {
     uploadSuccess.value = true
   }
-  
+
   uploading.value = false
 }
 

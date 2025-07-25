@@ -17,12 +17,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, provide } from 'vue'
-import { useAuthStore } from './stores/auth'
+import { nameStore } from './stores/auth'
 import AuthModal from './components/AuthModal.vue'
 import OfflineIndicator from './components/OfflineIndicator.vue'
 import NetworkRoutingHint from './components/NetworkRoutingHint.vue'
 
-const authStore = useAuthStore()
 const showAuthModal = ref(false)
 
 // Provide auth modal control to child components
@@ -31,11 +30,8 @@ provide('showAuthModal', (show: boolean) => {
 })
 
 onMounted(async () => {
-  // Check authentication on app load
-  await authStore.checkAuth()
-  
   // Show auth modal if not authenticated
-  if (!authStore.isAuthenticated) {
+  if (!nameStore.value) {
     showAuthModal.value = true
   }
 })

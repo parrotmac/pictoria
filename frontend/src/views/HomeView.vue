@@ -3,8 +3,8 @@
     <div class="header">
       <h1>Pictoria 📸</h1>
       <small>Upload or capture your photos</small>
-      <p v-if="authStore.user" class="welcome-text">
-        Welcome, {{ authStore.user.name }}!
+      <p v-if="nameStore" class="welcome-text">
+        Welcome, {{ nameStore }}!
       </p>
     </div>
 
@@ -69,14 +69,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
+import { nameStore } from '../stores/auth'
 import { Upload, Camera } from 'lucide-vue-next'
 import PhotoUpload from '../components/PhotoUpload.vue'
 import PhotoCapture from '../components/PhotoCapture.vue'
 import { usePhotosStore } from '../stores/photos'
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 const showUploadModal = ref(false)
 const showCameraModal = ref(false)
@@ -119,7 +118,7 @@ async function uploadFiles() {
 
   for (const file of selectedFiles.value) {
     try {
-      const result = await photosStore.uploadPhoto(file)
+      const result = await photosStore.uploadPhoto(nameStore.value, file)
       uploadProgress.value.current++
       if (result?.id) {
         lastUploadedPhotoId.value = result.id
