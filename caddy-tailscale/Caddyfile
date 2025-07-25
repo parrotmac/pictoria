@@ -1,0 +1,8 @@
+:8080 {
+    reverse_proxy https://pictoria.fluffy-broadnose.ts.net {
+        header_up Host {http.reverse_proxy.upstream.hostport}
+        header_up X-Forwarded-For {http.request.remote.addr}
+        header_up X-Real-IP {http.request.remote.addr}
+        transport tailscale pictoria
+    }
+}
