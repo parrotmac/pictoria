@@ -18,7 +18,7 @@
             ref="fileInput" 
             class="file-input"
             @change="handleFileSelect"
-            accept="image/*,.heic,.HEIC,.heif,.HEIF"
+            accept="image/*"
             multiple
             :disabled="uploading"
           />

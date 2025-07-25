@@ -15,7 +15,29 @@
         <p>Choose from your device</p>
       </div>
 
-      <div class="action-button" @click="showCameraModal = true">
+      <input 
+        type="file" 
+        ref="fileInput" 
+        class="file-input"
+        @change="handleFileSelect"
+        accept="image/*"
+        style="display:none"
+        multiple
+        capture
+        :disabled="uploading"
+      />
+
+      <div v-if="uploading" class="upload-progress">
+        <div class="spinner"></div>
+        <p v-if="uploadProgress.total > 1">
+          Uploading {{ uploadProgress.current }} of {{ uploadProgress.total }} files...
+        </p>
+        <p v-else-if="selectedFiles.length > 0">
+          Uploading {{ selectedFiles[0].name }}...
+        </p>
+      </div>
+
+      <div class="action-button" @click="(($refs.fileInput as HTMLInputElement).click())" :disabled="uploading">
         <Camera :size="50" />
         <h2>Capture Photo</h2>
         <p>Use your camera</p>
@@ -51,6 +73,7 @@ import { useAuthStore } from '../stores/auth'
 import { Upload, Camera } from 'lucide-vue-next'
 import PhotoUpload from '../components/PhotoUpload.vue'
 import PhotoCapture from '../components/PhotoCapture.vue'
+import { usePhotosStore } from '../stores/photos'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -65,6 +88,57 @@ function handlePhotoUploaded(photoId: string) {
     hash: `#photo-${photoId}` 
   })
 }
+
+const uploading = ref(false)
+const error = ref('')
+const selectedFiles = ref<File[]>([])
+const uploadSuccess = ref(false)
+const uploadProgress = ref({ current: 0, total: 0 })
+const photosStore = usePhotosStore()
+const lastUploadedPhotoId = ref<string>('')
+
+function handleFileSelect(e: Event) {
+  const target = e.target as HTMLInputElement
+  const files = Array.from(target.files || [])
+  if (files.length > 0) {
+    selectedFiles.value = files
+    uploadFiles()
+  }
+}
+
+async function uploadFiles() {
+  if (selectedFiles.value.length === 0) return
+
+  uploading.value = true
+  error.value = ''
+  uploadSuccess.value = false
+  uploadProgress.value.total = selectedFiles.value.length
+  uploadProgress.value.current = 0
+
+  const failedUploads: string[] = []
+
+  for (const file of selectedFiles.value) {
+    try {
+      const result = await photosStore.uploadPhoto(file)
+      uploadProgress.value.current++
+      if (result?.id) {
+        lastUploadedPhotoId.value = result.id
+      }
+    } catch (err) {
+      failedUploads.push(file.name)
+      console.error('Upload error for', file.name, ':', err)
+    }
+  }
+
+  if (failedUploads.length > 0) {
+    error.value = `Failed to upload: ${failedUploads.join(', ')}`
+  } else {
+    uploadSuccess.value = true
+  }
+  
+  uploading.value = false
+}
+
 </script>
 
 <style scoped>
